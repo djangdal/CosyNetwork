@@ -43,11 +43,13 @@ public struct APIDispatcher: APIDispatcherProtocol {
 public class APIAuthenticatedDispatcher: APIDispatcherProtocol {
     private let urlSession: URLSession
     private var token: String
+    private let authHeaderName: String
     private let decoder = JSONDecoder()
     
-    public init(urlSession: URLSession = .shared, token: String) {
+    public init(urlSession: URLSession = .shared, token: String, authHeaderName: String) {
         self.urlSession = urlSession
         self.token = token
+        self.authHeaderName = authHeaderName
         decoder.dateDecodingStrategy = .iso8601
     }
     
@@ -55,11 +57,11 @@ public class APIAuthenticatedDispatcher: APIDispatcherProtocol {
         guard var urlRequest = request.urlRequest else {
             return Fail(outputType: Request.ResponseBodyType.self, failure: APIError.urlRequestUnavailable).eraseToAnyPublisher()
         }
-        urlRequest.addValue(token, forHTTPHeaderField: "x-auth-token")
+        urlRequest.addValue(token, forHTTPHeaderField: authHeaderName)
         return urlSession
             .dataTaskPublisher(for: urlRequest)
             .map({ data, response in
-                if let httpResponse = response as? HTTPURLResponse, let token = httpResponse.value(forHTTPHeaderField: "x-auth-token") {
+                if let httpResponse = response as? HTTPURLResponse, let token = httpResponse.value(forHTTPHeaderField: self.authHeaderName) {
                     self.token = token
                 }
                 return data
