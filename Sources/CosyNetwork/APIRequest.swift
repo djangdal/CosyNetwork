@@ -28,15 +28,20 @@ public protocol APIRequest {
     var queryParameters: [String: String]? { get }
     var requestHeaders: [String: String]? { get }
     var cachingPolicy: URLRequest.CachePolicy { get }
+    var encoder: JSONEncoder { get }
 
     var urlRequest: URLRequest? { get }
 }
 
 // Default values
 public extension APIRequest {
-    var requestHeaders: [String: String]? { return nil }
     var queryParameters: [String: String]? { return nil }
     var cachingPolicy: URLRequest.CachePolicy { return .reloadIgnoringLocalAndRemoteCacheData }
+    var encoder: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }
 }
 
 // Create URLRequest from the values
@@ -76,7 +81,7 @@ public protocol APIBodyRequest: APIRequest {
 
 public extension APIBodyRequest {
     var urlRequest: URLRequest? {
-        guard var urlRequest = baseRequest, let data = try? JSONEncoder().encode(body) else { return nil }
+        guard var urlRequest = baseRequest, let data = try? encoder.encode(body) else { return nil }
         urlRequest.allHTTPHeaderFields?["Content-Type"] = "application/json"
         urlRequest.httpBody = data
         return urlRequest
