@@ -82,8 +82,22 @@ public protocol APIBodyRequest: APIRequest {
 public extension APIBodyRequest {
     var urlRequest: URLRequest? {
         guard var urlRequest = baseRequest, let data = try? encoder.encode(body) else { return nil }
-        urlRequest.allHTTPHeaderFields?["Content-Type"] = "application/json"
+        if urlRequest.allHTTPHeaderFields?["Content-Type"] == nil {
+            urlRequest.allHTTPHeaderFields?["Content-Type"] = "application/json"
+        }
         urlRequest.httpBody = data
+        return urlRequest
+    }
+}
+
+public protocol APIDataUploadRequest: APIRequest {
+    var body: Data { get }
+}
+
+public extension APIDataUploadRequest {
+    var urlRequest: URLRequest? {
+        guard var urlRequest = baseRequest else { return nil }
+        urlRequest.httpBody = body
         return urlRequest
     }
 }
