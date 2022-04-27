@@ -17,8 +17,6 @@ public enum HTTPMethod: String {
 }
 
 public protocol APIRequest {
-    associatedtype ResponseBodyType: Decodable
-
     // Required
     var baseURLPath: String { get }
     var path: String { get }
@@ -33,6 +31,17 @@ public protocol APIRequest {
     var urlRequest: URLRequest? { get }
 }
 
+public protocol APIDecodableRequest: APIRequest {
+    associatedtype ResponseBodyType: Decodable
+}
+
+public protocol APIEncodableRequest: APIRequest {
+    associatedtype RequestBodyType: Encodable
+    var body: RequestBodyType { get }
+}
+
+public typealias APICodableRequest = APIEncodableRequest & APIDecodableRequest
+
 // Default values
 public extension APIRequest {
     var queryParameters: [String: String]? { return nil }
@@ -44,14 +53,7 @@ public extension APIRequest {
     }
 }
 
-// Create URLRequest from the values
-public extension APIRequest {
-    var urlRequest: URLRequest? {
-        baseRequest
-    }
-}
-
-private extension APIRequest {
+fileprivate extension APIRequest {
     var baseRequest: URLRequest? {
         guard var urlComponents = URLComponents(string: baseURLPath + path) else { return nil }
 
@@ -74,30 +76,19 @@ private extension APIRequest {
     }
 }
 
-public protocol APIBodyRequest: APIRequest {
-    associatedtype RequestBodyType: Encodable
-    var body: RequestBodyType { get }
+public extension APIRequest {
+    var urlRequest: URLRequest? {
+        baseRequest
+    }
 }
 
-public extension APIBodyRequest {
+public extension APIEncodableRequest {
     var urlRequest: URLRequest? {
         guard var urlRequest = baseRequest, let data = try? encoder.encode(body) else { return nil }
         if urlRequest.allHTTPHeaderFields?["Content-Type"] == nil {
             urlRequest.allHTTPHeaderFields?["Content-Type"] = "application/json"
         }
         urlRequest.httpBody = data
-        return urlRequest
-    }
-}
-
-public protocol APIDataUploadRequest: APIRequest {
-    var body: Data { get }
-}
-
-public extension APIDataUploadRequest {
-    var urlRequest: URLRequest? {
-        guard var urlRequest = baseRequest else { return nil }
-        urlRequest.httpBody = body
         return urlRequest
     }
 }

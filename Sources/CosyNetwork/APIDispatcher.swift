@@ -18,10 +18,11 @@ public struct ResponseError: Error, Decodable {
 }
 
 public protocol APIDispatcherProtocol {
-    func dispatch<Request: APIRequest>(_ request: Request) -> AnyPublisher<Request.ResponseBodyType, Error>
+    func dispatch<Request: APIRequest>(_ request: Request) async throws
+    func dispatch<Request: APIDecodableRequest>(_ request: Request) async throws -> Request.ResponseBodyType 
 }
 
-public struct APIDispatcher: APIDispatcherProtocol {
+public final class APIDispatcher: APIDispatcherProtocol {
     private let urlSession: URLSession
     private let decoder: JSONDecoder
 
@@ -30,30 +31,30 @@ public struct APIDispatcher: APIDispatcherProtocol {
         self.decoder = decoder
     }
 
-    public func dispatch<Request: APIRequest>(_ request: Request) -> AnyPublisher<Request.ResponseBodyType, Error> {
+    @discardableResult
+    private func execute<Request: APIRequest>(_ request: Request) async throws -> Data {
         guard let urlRequest = request.urlRequest else {
-            return Fail(outputType: Request.ResponseBodyType.self, failure: APIError.urlRequestUnavailable).eraseToAnyPublisher()
+            throw APIError.urlRequestUnavailable
         }
-        return urlSession
-            .dataTaskPublisher(for: urlRequest)
-            .tryMap{ data, response in
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    return data
-                }
+        let response = try await urlSession.data(for: urlRequest)
 
-                if httpResponse.statusCode == 400 {
-                    throw try self.decoder.decode(ResponseError.self, from: data)
-                }
+        guard let httpResponse = response.1 as? HTTPURLResponse else {
+            throw ResponseError(error: "Could not get HTTPURLResponse from URLRespose", errorCode: "none")
+        }
 
-                if httpResponse.statusCode == 503 {
-                    throw ResponseError(error: "Service unavailable", errorCode: "SERVICE_UNAVAILABLE")
-                }
+        if httpResponse.statusCode == 400 {
+            throw try decoder.decode(ResponseError.self, from: response.0)
+        }
+        return response.0
+    }
 
-                return data
-            }
-            .decode(type: Request.ResponseBodyType.self, decoder: decoder)
-            .receive(on: DispatchQueue.main)
-            .eraseToAnyPublisher()
+    public func dispatch<Request: APIRequest>(_ request: Request) async throws {
+        try await execute(request)
+    }
+
+    public func dispatch<Request: APIDecodableRequest>(_ request: Request) async throws -> Request.ResponseBodyType {
+        let data = try await execute(request)
+        return try decoder.decode(Request.ResponseBodyType.self, from: data)
     }
 }
 
@@ -69,34 +70,35 @@ public class APIAuthenticatedDispatcher: APIDispatcherProtocol {
         self.authHeaderName = authHeaderName
         self.decoder = decoder
     }
-    
-    public func dispatch<Request: APIRequest>(_ request: Request) -> AnyPublisher<Request.ResponseBodyType, Error> {
+
+    @discardableResult
+    public func execute<Request: APIRequest>(_ request: Request) async throws -> Data {
         guard var urlRequest = request.urlRequest else {
-            return Fail(outputType: Request.ResponseBodyType.self, failure: APIError.urlRequestUnavailable).eraseToAnyPublisher()
+            throw APIError.urlRequestUnavailable
         }
         urlRequest.addValue(token, forHTTPHeaderField: authHeaderName)
-        return urlSession
-            .dataTaskPublisher(for: urlRequest)
-            .tryMap{ [weak self] data, response in
-                guard let self = self, let httpResponse = response as? HTTPURLResponse else {
-                    return data
-                }
-                if let token = httpResponse.value(forHTTPHeaderField: self.authHeaderName) {
-                    self.token = token
-                }
+        let response = try await urlSession.data(for: urlRequest)
 
-                if httpResponse.statusCode == 400 {
-                    throw try self.decoder.decode(ResponseError.self, from: data)
-                }
+        guard let httpResponse = response.1 as? HTTPURLResponse else {
+            throw ResponseError(error: "Could not get HTTPURLResponse from URLRespose", errorCode: "none")
+        }
 
-                if httpResponse.statusCode == 503 {
-                    throw ResponseError(error: "Service unavailable", errorCode: "SERVICE_UNAVAILABLE")
-                }
+        if let token = httpResponse.value(forHTTPHeaderField: self.authHeaderName) {
+            self.token = token
+        }
 
-                return data
-            }
-            .decode(type: Request.ResponseBodyType.self, decoder: decoder)
-            .receive(on: DispatchQueue.main)
-            .eraseToAnyPublisher()
+        if httpResponse.statusCode == 400 {
+            throw try decoder.decode(ResponseError.self, from: response.0)
+        }
+        return response.0
+    }
+
+    public func dispatch<Request: APIRequest>(_ request: Request) async throws {
+        try await execute(request)
+    }
+
+    public func dispatch<Request: APIDecodableRequest>(_ request: Request) async throws -> Request.ResponseBodyType {
+        let response = try await execute(request)
+        return try decoder.decode(Request.ResponseBodyType.self, from: response)
     }
 }
