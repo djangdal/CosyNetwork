@@ -27,10 +27,32 @@ open class APIDispatcher: APIDispatcherProtocol {
         self.decoder = decoder
     }
 
+    private func data(from request: URLRequest) async throws -> (Data, URLResponse) {
+        return try await withCheckedThrowingContinuation { continuation in
+            URLSession.shared.dataTask(with: request) { (data, response, error) in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let data = data, let response = response else {
+                    continuation.resume(throwing: APIError.invdalidHttpResponse)
+                    return
+                }
+                continuation.resume(returning: (data, response))
+            }.resume()
+        }
+    }
+
     @discardableResult
     private func execute<Request: APIRequest>(_ request: Request) async throws -> (Data, HTTPURLResponse, HTTPStatusCode) {
         let urlRequest = try request.urlRequest
-        let response = try await urlSession.data(for: urlRequest)
+
+        let response: (Data, URLResponse)
+        if #available(iOS 15.0, *) {
+            response = try await urlSession.data(for: urlRequest)
+        } else {
+            response = try await data(from: urlRequest)
+        }
 
         guard let httpResponse = response.1 as? HTTPURLResponse else {
             throw APIError.invdalidHttpResponse
