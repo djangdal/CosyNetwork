@@ -70,7 +70,11 @@ open class APIDispatcher: APIDispatcherProtocol {
 
     @discardableResult
     open func dispatch<Request: APIRequest>(_ request: Request) async throws -> (Data, HTTPURLResponse, HTTPStatusCode) {
-        try await execute(request)
+        let (data, urlResponse, statusCode) = try await execute(request)
+        guard request.successStatusCodes.contains(statusCode) else {
+            throw APIError.statusCodeNotHandled
+        }
+        return (data, urlResponse, statusCode)
     }
 
     open func dispatch<Request: APIDecodableRequest>(_ request: Request) async throws -> (Request.ResponseBodyType, HTTPURLResponse, HTTPStatusCode) {

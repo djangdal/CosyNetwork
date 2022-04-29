@@ -27,6 +27,7 @@ public protocol APIRequest {
     var baseURLPath: String { get }
     var path: String { get }
     var method: HTTPMethod { get }
+    var successStatusCodes: [HTTPStatusCode] { get }
     var failingStatusCodes: [HTTPStatusCode] { get }
 
     //Optional
@@ -40,7 +41,6 @@ public protocol APIRequest {
 
 public protocol APIDecodableRequest: APIRequest {
     associatedtype ResponseBodyType: Decodable
-    var successStatusCodes: [HTTPStatusCode] { get }
 }
 
 public protocol APIEncodableRequest: APIRequest {
