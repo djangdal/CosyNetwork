@@ -49,6 +49,9 @@ public protocol APIEncodableRequest: APIRequest {
 }
 
 public typealias APICodableRequest = APIEncodableRequest & APIDecodableRequest
+public protocol APIDataRequest: APIRequest {
+    var body: Data { get }
+}
 
 // Default values
 public extension APIRequest {
@@ -107,6 +110,16 @@ public extension APIEncodableRequest {
             }
             let data = try encoder.encode(body)
             urlRequest.httpBody = data
+            return urlRequest
+        }
+    }
+}
+
+public extension APIDataRequest {
+    var urlRequest: URLRequest {
+        get throws {
+            var urlRequest = try baseRequest
+            urlRequest.httpBody = body
             return urlRequest
         }
     }
