@@ -22,12 +22,12 @@ open class APIDispatcher: APIDispatcherProtocol {
     private let urlSession: URLSession
     private let decoder: JSONDecoder
 
-    public init(urlSession: URLSession = .shared, decoder: JSONDecoder = JSONDecoder()) {
+    public init(urlSession: URLSession = .shared, decoder: JSONDecoder) {
         self.urlSession = urlSession
         self.decoder = decoder
     }
 
-    private func data(from request: URLRequest) async throws -> (Data, URLResponse) {
+    public func data(from request: URLRequest) async throws -> (Data, URLResponse) {
         return try await withCheckedThrowingContinuation { continuation in
             URLSession.shared.dataTask(with: request) { (data, response, error) in
                 if let error = error {
