@@ -32,12 +32,10 @@ open class APIDispatcher: APIDispatcherProtocol {
         self.urlSession = urlSession
         self.decoder = decoder
     }
-}
 
-public extension APIDispatcher {
     @available(iOS 13.0.0, *)
     @discardableResult
-    func dispatch<Request: APIRequest>(_ request: Request) async throws -> (Data, HTTPURLResponse, HTTPStatusCode) {
+    open func dispatch<Request: APIRequest>(_ request: Request) async throws -> (Data, HTTPURLResponse, HTTPStatusCode) {
         let (data, urlResponse, statusCode) = try await execute(request)
         guard request.successStatusCodes.contains(statusCode) else {
             throw APIError.statusCodeNotHandled
@@ -46,7 +44,7 @@ public extension APIDispatcher {
     }
 
     @available(iOS 13.0.0, *)
-    func dispatch<Request: APIDecodableRequest>(_ request: Request) async throws -> (Request.ResponseBodyType, HTTPURLResponse, HTTPStatusCode) {
+    open func dispatch<Request: APIDecodableRequest>(_ request: Request) async throws -> (Request.ResponseBodyType, HTTPURLResponse, HTTPStatusCode) {
         let (data, urlResponse, statusCode) = try await execute(request)
 
         if request.successStatusCodes.contains(statusCode) {
